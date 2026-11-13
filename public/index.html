@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>OnRamp — Stripe Crypto Sample</title>
+    <title>OnRamp — Pay with card</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -21,7 +21,7 @@
         <span class="brand-name">OnRamp</span>
       </div>
       <div class="topbar-meta">
-        <span id="mode-badge" class="badge live">Hosted checkout</span>
+        <span id="mode-badge" class="badge live">Card payment</span>
         <a
           class="docs-link"
           href="https://docs.stripe.com/crypto/onramp"
@@ -34,86 +34,59 @@
 
     <main class="layout single">
       <section class="panel form-panel">
-        <p class="eyebrow">Fiat → crypto</p>
-        <h1>Buy crypto with Stripe Onramp</h1>
+        <p class="eyebrow">Checkout</p>
+        <h1>Pay with card</h1>
         <p class="lede">
-          Create a session on your server, then open Stripe’s hosted payment
-          page (<code>redirect_url</code>) in a new tab.
+          Crypto wallet, asset, and network are set by you in
+          <code>.env</code> before the link is created. The customer only enters
+          amount (and optional email), then pays on Stripe’s hosted page.
         </p>
 
+        <div id="merchant-box" class="merchant-box">
+          <p class="merchant-label">Pre-filled by merchant (locked)</p>
+          <p id="merchant-summary" class="merchant-summary">Loading…</p>
+        </div>
+
         <form id="onramp-form" class="form" novalidate>
-          <div class="field-row">
-            <label class="field">
-              <span>Amount (USD)</span>
-              <input
-                id="source_amount"
-                name="source_amount"
-                type="number"
-                min="1"
-                step="1"
-                value="50"
-                required
-              />
-            </label>
-            <label class="field">
-              <span>Destination</span>
-              <select id="destination_currency" name="destination_currency">
-                <option value="usdc">USDC</option>
-                <option value="eth">ETH</option>
-                <option value="sol">SOL</option>
-                <option value="btc">BTC</option>
-              </select>
-            </label>
-          </div>
-
           <label class="field">
-            <span>Network</span>
-            <select id="destination_network" name="destination_network">
-              <option value="ethereum">Ethereum</option>
-              <option value="solana">Solana</option>
-              <option value="polygon">Polygon</option>
-              <option value="bitcoin">Bitcoin</option>
-            </select>
-          </label>
-
-          <label class="field">
-            <span>Wallet address</span>
+            <span>Amount (USD)</span>
             <input
-              id="wallet_address"
-              name="wallet_address"
-              type="text"
-              spellcheck="false"
-              autocomplete="off"
-              placeholder="0x… or Solana / Bitcoin address"
-              value="0xB00F0759DbeeF5E543Cc3E3B07A6442F5f3928a2"
+              id="source_amount"
+              name="source_amount"
+              type="number"
+              min="1"
+              step="1"
+              value="50"
               required
             />
           </label>
 
-          <label class="field checkbox">
+          <label class="field">
+            <span>Email (optional — speeds up checkout)</span>
             <input
-              id="lock_wallet_address"
-              name="lock_wallet_address"
-              type="checkbox"
-              checked
+              id="email"
+              name="email"
+              type="email"
+              autocomplete="email"
+              placeholder="customer@example.com"
+              value="muhammadumersheraz@gmail.com"
             />
-            <span>Lock wallet address (customer can’t change it)</span>
           </label>
 
           <div class="actions">
             <button type="submit" id="start-btn" class="btn primary">
-              Open payment link
+              Pay with card
             </button>
           </div>
         </form>
 
         <div id="error-box" class="error-box" hidden></div>
         <p id="session-status" class="session-status inline-status">
-          Waiting for session…
+          Waiting…
         </p>
 
         <div id="session-result" class="session-result" hidden>
-          <p class="result-title">Session created</p>
+          <p class="result-title">Payment link ready</p>
           <dl id="session-details" class="session-details"></dl>
           <div class="actions">
             <button type="button" id="reopen-btn" class="btn primary">
@@ -123,13 +96,24 @@
         </div>
 
         <aside class="flow">
-          <h2>Integration flow</h2>
+          <h2>What gets locked before the link</h2>
           <ol>
-            <li>Server calls <code>POST /v1/crypto/onramp_sessions</code></li>
-            <li>API returns <code>redirect_url</code> (hosted checkout)</li>
-            <li>App opens that URL in a new browser tab</li>
-            <li>Webhook <code>crypto.onramp_session.updated</code> tracks status</li>
+            <li>
+              Server reads <code>ONRAMP_WALLET_ADDRESS</code>, currency, network
+              from <code>.env</code>
+            </li>
+            <li>
+              Calls
+              <code>POST /v1/crypto/onramp_sessions</code>
+              with locked wallet / asset / network
+            </li>
+            <li>Opens <code>redirect_url</code> — customer adds card and pays</li>
           </ol>
+          <p class="hint-inline">
+            Note: Stripe’s hosted page is still Crypto Onramp (KYC may appear).
+            We cannot hide Stripe’s branding, but the customer won’t choose
+            wallet, coin, or network.
+          </p>
         </aside>
       </section>
     </main>

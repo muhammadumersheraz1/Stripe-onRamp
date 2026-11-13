@@ -1,6 +1,6 @@
 # Stripe Crypto Onramp — sample app
 
-Sample integration for [Stripe’s fiat-to-crypto Onramp](https://docs.stripe.com/crypto/onramp): create a session on the server, open the hosted `redirect_url` in a new tab, and listen for status webhooks.
+Sample integration for [Stripe’s fiat-to-crypto Onramp](https://docs.stripe.com/crypto/onramp): merchant locks wallet / asset / network in `.env`, creates a session, opens hosted `redirect_url` in a new tab so the customer mainly pays with a card.
 
 ```
 Browser                    Your server                 Stripe
@@ -36,8 +36,11 @@ Open [http://localhost:4242](http://localhost:4242).
 | Variable | Purpose |
 | --- | --- |
 | `STRIPE_SECRET_KEY` | Server-side session creation |
-| `STRIPE_PUBLISHABLE_KEY` | Client SDK (`StripeOnramp`) |
+| `STRIPE_PUBLISHABLE_KEY` | Optional (not required for hosted redirect) |
 | `STRIPE_WEBHOOK_SECRET` | Verify `crypto.onramp_session.updated` |
+| `ONRAMP_WALLET_ADDRESS` | Your settlement wallet (locked) |
+| `ONRAMP_DESTINATION_CURRENCY` | e.g. `usdc` (locked) |
+| `ONRAMP_DESTINATION_NETWORK` | e.g. `ethereum` (locked) |
 | `PORT` | Default `4242` |
 
 ## What this sample shows
