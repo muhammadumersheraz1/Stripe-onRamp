@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OnRamp — Stripe Crypto Sample</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="bg-grid" aria-hidden="true"></div>
+
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-name">OnRamp</span>
+      </div>
+      <div class="topbar-meta">
+        <span id="mode-badge" class="badge live">Hosted checkout</span>
+        <a
+          class="docs-link"
+          href="https://docs.stripe.com/crypto/onramp"
+          target="_blank"
+          rel="noreferrer"
+          >Stripe docs</a
+        >
+      </div>
+    </header>
+
+    <main class="layout single">
+      <section class="panel form-panel">
+        <p class="eyebrow">Fiat → crypto</p>
+        <h1>Buy crypto with Stripe Onramp</h1>
+        <p class="lede">
+          Create a session on your server, then open Stripe’s hosted payment
+          page (<code>redirect_url</code>) in a new tab.
+        </p>
+
+        <form id="onramp-form" class="form" novalidate>
+          <div class="field-row">
+            <label class="field">
+              <span>Amount (USD)</span>
+              <input
+                id="source_amount"
+                name="source_amount"
+                type="number"
+                min="1"
+                step="1"
+                value="50"
+                required
+              />
+            </label>
+            <label class="field">
+              <span>Destination</span>
+              <select id="destination_currency" name="destination_currency">
+                <option value="usdc">USDC</option>
+                <option value="eth">ETH</option>
+                <option value="sol">SOL</option>
+                <option value="btc">BTC</option>
+              </select>
+            </label>
+          </div>
+
+          <label class="field">
+            <span>Network</span>
+            <select id="destination_network" name="destination_network">
+              <option value="ethereum">Ethereum</option>
+              <option value="solana">Solana</option>
+              <option value="polygon">Polygon</option>
+              <option value="bitcoin">Bitcoin</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Wallet address</span>
+            <input
+              id="wallet_address"
+              name="wallet_address"
+              type="text"
+              spellcheck="false"
+              autocomplete="off"
+              placeholder="0x… or Solana / Bitcoin address"
+              value="0xB00F0759DbeeF5E543Cc3E3B07A6442F5f3928a2"
+              required
+            />
+          </label>
+
+          <label class="field checkbox">
+            <input
+              id="lock_wallet_address"
+              name="lock_wallet_address"
+              type="checkbox"
+              checked
+            />
+            <span>Lock wallet address (customer can’t change it)</span>
+          </label>
+
+          <div class="actions">
+            <button type="submit" id="start-btn" class="btn primary">
+              Open payment link
+            </button>
+          </div>
+        </form>
+
+        <div id="error-box" class="error-box" hidden></div>
+        <p id="session-status" class="session-status inline-status">
+          Waiting for session…
+        </p>
+
+        <div id="session-result" class="session-result" hidden>
+          <p class="result-title">Session created</p>
+          <dl id="session-details" class="session-details"></dl>
+          <div class="actions">
+            <button type="button" id="reopen-btn" class="btn primary">
+              Reopen payment link
+            </button>
+          </div>
+        </div>
+
+        <aside class="flow">
+          <h2>Integration flow</h2>
+          <ol>
+            <li>Server calls <code>POST /v1/crypto/onramp_sessions</code></li>
+            <li>API returns <code>redirect_url</code> (hosted checkout)</li>
+            <li>App opens that URL in a new browser tab</li>
+            <li>Webhook <code>crypto.onramp_session.updated</code> tracks status</li>
+          </ol>
+        </aside>
+      </section>
+    </main>
+
+    <script src="/app.js" defer></script>
+  </body>
+</html>
