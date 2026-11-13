@@ -19,11 +19,11 @@ function getMerchantDestination() {
 }
 
 /**
- * Stripe Onramp hosted link:
+ * Stripe Onramp session (embedded widget):
  * POST https://api.stripe.com/v1/crypto/onramp_sessions
- * → redirect_url (https://crypto.link.com?session_hash=...)
+ * → client_secret (mount with StripeOnramp JS SDK)
  *
- * Docs: https://docs.stripe.com/api/crypto/onramp_sessions/create
+ * Docs: https://docs.stripe.com/crypto/onramp/embedded
  */
 async function createOnrampSession(secretKey, body) {
   const params = new URLSearchParams();
@@ -98,14 +98,18 @@ async function createOnrampSession(secretKey, body) {
   if (response.ok) {
     console.log("[stripe] Session id:", data.id);
     console.log("[stripe] Status:", data.status);
-    console.log("[stripe] Hosted link (redirect_url):", data.redirect_url || "(none)");
+    console.log(
+      "[stripe] client_secret:",
+      data.client_secret ? "(present)" : "(none)"
+    );
     console.log(
       "[stripe] Full response:",
       JSON.stringify(
         {
           id: data.id,
           status: data.status,
-          redirect_url: data.redirect_url,
+          has_client_secret: Boolean(data.client_secret),
+          redirect_url: data.redirect_url || null,
           transaction_details: data.transaction_details,
         },
         null,
@@ -159,20 +163,23 @@ router.post("/session", async (req, res) => {
     }
 
     const merchant = getMerchantDestination();
-    if (!merchant.wallet_address) {
-      return res.status(500).json({
-        error:
-          "Missing ONRAMP_WALLET_ADDRESS in .env. Set your settlement wallet before creating payment links.",
-      });
-    }
-
     const {
       source_amount,
       source_currency = "usd",
       email,
       first_name,
       last_name,
+      wallet_address: bodyWallet,
     } = req.body || {};
+
+    // Prefer caller wallet (e.g. Privy embedded) over merchant .env default
+    const wallet_address = String(bodyWallet || merchant.wallet_address || "").trim();
+    if (!wallet_address) {
+      return res.status(500).json({
+        error:
+          "Missing wallet address. Pass wallet_address in the request body or set ONRAMP_WALLET_ADDRESS in .env.",
+      });
+    }
 
     if (!source_amount) {
       return res.status(400).json({ error: "source_amount is required" });
@@ -190,7 +197,7 @@ router.post("/session", async (req, res) => {
       destination_network: merchant.destination_network,
       // Single-network wallet map — locked so customer never picks crypto details
       wallet_addresses: {
-        [merchant.destination_network]: merchant.wallet_address,
+        [merchant.destination_network]: wallet_address,
       },
       customer_information:
         Object.keys(customer_information).length > 0
@@ -216,6 +223,7 @@ router.post("/session", async (req, res) => {
     return res.json({
       sessionId: data.id,
       status: data.status,
+      clientSecret: data.client_secret || null,
       redirectUrl: data.redirect_url || null,
       transactionDetails: data.transaction_details,
     });

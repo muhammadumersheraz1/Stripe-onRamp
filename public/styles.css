@@ -316,12 +316,25 @@ code {
   font-size: 0.86rem;
 }
 
-.session-result {
+.session-result,
+.onramp-panel {
   margin-top: 1.15rem;
   padding: 1rem;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: #f8faf7;
+}
+
+.onramp-element {
+  margin-top: 0.85rem;
+  min-height: 480px;
+  width: 100%;
+}
+
+.onramp-element iframe {
+  width: 100% !important;
+  border: 0;
+  border-radius: 10px;
 }
 
 .result-title {

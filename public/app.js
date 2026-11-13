@@ -1,14 +1,13 @@
 (() => {
   const form = document.getElementById("onramp-form");
   const startBtn = document.getElementById("start-btn");
-  const reopenBtn = document.getElementById("reopen-btn");
   const errorBox = document.getElementById("error-box");
   const sessionStatus = document.getElementById("session-status");
-  const sessionResult = document.getElementById("session-result");
-  const sessionDetails = document.getElementById("session-details");
-  const merchantSummary = document.getElementById("merchant-summary");
+  const onrampPanel = document.getElementById("onramp-panel");
+  const onrampElement = document.getElementById("onramp-element");
 
-  let lastRedirectUrl = null;
+  let stripeOnramp = null;
+  let activeSession = null;
 
   function showError(message) {
     errorBox.hidden = false;
@@ -21,61 +20,87 @@
   }
 
   function setStatus(text) {
+    if (!text) {
+      sessionStatus.hidden = true;
+      sessionStatus.textContent = "";
+      return;
+    }
+    sessionStatus.hidden = false;
     sessionStatus.textContent = text;
   }
 
-  function openPaymentLink(url) {
-    const tab = window.open(url, "_blank", "noopener,noreferrer");
-    if (!tab) {
-      showError(
-        "Popup blocked. Allow popups for this site, then click Reopen payment link."
+  async function getPublishableKey() {
+    const res = await fetch("/api/config");
+    const data = await res.json();
+    if (!data.publishableKey) {
+      throw new Error(
+        "Missing STRIPE_PUBLISHABLE_KEY. Add it to .env and restart the server."
       );
     }
+    return data.publishableKey;
   }
 
-  function showSession(data) {
-    sessionResult.hidden = false;
-    const rows = {
-      session_id: data.sessionId,
-      status: data.status,
-      payment_link: data.redirectUrl,
-      amount: data.transactionDetails?.source_amount
-        ? `$${data.transactionDetails.source_amount}`
-        : "—",
-      locked_to: `${data.transactionDetails?.destination_currency || "—"} on ${
-        data.transactionDetails?.destination_network || "—"
-      }`,
-    };
+  async function ensureStripeOnramp() {
+    if (stripeOnramp) return stripeOnramp;
 
-    sessionDetails.innerHTML = Object.entries(rows)
-      .map(([k, v]) => {
-        if (k === "payment_link" && v) {
-          return `<dt>${k}</dt><dd><a href="${v}" target="_blank" rel="noreferrer">${v}</a></dd>`;
-        }
-        return `<dt>${k}</dt><dd>${v ?? "—"}</dd>`;
-      })
-      .join("");
-  }
-
-  async function loadMerchantConfig() {
-    const res = await fetch("/api/onramp/merchant-config");
-    const config = await res.json();
-    if (!config.wallet_configured) {
-      merchantSummary.textContent =
-        "Set ONRAMP_WALLET_ADDRESS in .env (plus currency/network).";
-      startBtn.disabled = true;
-      return;
+    if (typeof window.StripeOnramp !== "function") {
+      throw new Error(
+        "Stripe Onramp SDK failed to load. Check your network and refresh."
+      );
     }
-    merchantSummary.textContent = `${String(
-      config.destination_currency
-    ).toUpperCase()} on ${config.destination_network} → your wallet (locked)`;
+
+    const publishableKey = await getPublishableKey();
+    stripeOnramp = window.StripeOnramp(publishableKey);
+    return stripeOnramp;
+  }
+
+  function clearWidget() {
+    if (activeSession && typeof activeSession.unmount === "function") {
+      try {
+        activeSession.unmount();
+      } catch (_) {
+        /* ignore */
+      }
+    }
+    activeSession = null;
+    onrampElement.innerHTML = "";
+  }
+
+  function mountWidget(clientSecret) {
+    clearWidget();
+    onrampPanel.hidden = false;
+
+    const onramp = stripeOnramp.createSession({
+      clientSecret,
+      appearance: { theme: "light" },
+    });
+
+    if (typeof onramp.addEventListener === "function") {
+      onramp.addEventListener("onramp_session_updated", (event) => {
+        const session = event?.payload?.session;
+        if (!session?.status) return;
+
+        if (session.status === "fulfillment_complete") {
+          setStatus("Payment complete — crypto delivery confirmed.");
+        } else if (session.status === "fulfillment_processing") {
+          setStatus("Payment received — fulfilling crypto…");
+        } else if (session.status === "rejected") {
+          showError("Checkout was rejected. Try again with a new session.");
+        } else {
+          setStatus(`Status: ${session.status}`);
+        }
+      });
+    }
+
+    onramp.mount(onrampElement);
+    activeSession = onramp;
   }
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     clearError();
     startBtn.disabled = true;
-    setStatus("Creating locked payment session…");
+    setStatus("Preparing secure checkout…");
 
     const body = {
       source_amount: document.getElementById("source_amount").value,
@@ -83,6 +108,8 @@
     };
 
     try {
+      await ensureStripeOnramp();
+
       const res = await fetch("/api/onramp/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -91,37 +118,23 @@
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Failed to create payment session");
+        throw new Error(data.error || "Could not start checkout");
       }
 
-      if (!data.redirectUrl) {
-        throw new Error("Stripe did not return redirect_url for this session.");
+      if (!data.clientSecret) {
+        throw new Error("Checkout session secret was not returned. Try again.");
       }
 
-      lastRedirectUrl = data.redirectUrl;
-      showSession(data);
-      setStatus(`opened · ${data.sessionId}`);
-      openPaymentLink(lastRedirectUrl);
+      setStatus("Checkout ready — complete payment in the widget.");
+      mountWidget(data.clientSecret);
     } catch (err) {
       console.error(err);
       showError(err.message || "Something went wrong");
-      setStatus("Error");
+      setStatus("");
+      onrampPanel.hidden = true;
+      clearWidget();
     } finally {
       startBtn.disabled = false;
     }
-  });
-
-  reopenBtn.addEventListener("click", () => {
-    if (!lastRedirectUrl) {
-      showError("No payment link yet. Create a session first.");
-      return;
-    }
-    clearError();
-    openPaymentLink(lastRedirectUrl);
-  });
-
-  loadMerchantConfig().catch((err) => {
-    console.error(err);
-    showError("Could not load merchant config from server.");
   });
 })();

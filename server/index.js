@@ -12,6 +12,24 @@ const PORT = process.env.PORT || 4242;
 app.use("/api/webhooks/stripe", webhooksRouter);
 
 app.use(express.json());
+
+// Allow the Privy sample (localhost:3000) to call this API cross-origin
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (
+    origin === "http://localhost:3000" ||
+    origin === "http://127.0.0.1:3000"
+  ) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  }
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+  next();
+});
+
 app.use(express.static(path.join(__dirname, "..", "public")));
 
 app.get("/api/config", (_req, res) => {
@@ -30,12 +48,17 @@ app.listen(PORT, () => {
   console.log(`\n  Stripe Crypto Onramp sample`);
   console.log(`  → http://localhost:${PORT}`);
   console.log(
-    `  Hosted link API: POST https://api.stripe.com/v1/crypto/onramp_sessions`
+    `  Session API: POST https://api.stripe.com/v1/crypto/onramp_sessions`
   );
-  console.log(`  Uses response.redirect_url → open in new tab\n`);
+  console.log(`  Uses client_secret → embedded Onramp widget\n`);
 
   if (!process.env.STRIPE_SECRET_KEY) {
     console.warn("  Warning: STRIPE_SECRET_KEY is missing. Set it in .env.\n");
+  }
+  if (!process.env.STRIPE_PUBLISHABLE_KEY) {
+    console.warn(
+      "  Warning: STRIPE_PUBLISHABLE_KEY is missing. Required for the embedded widget.\n"
+    );
   }
 });
 
